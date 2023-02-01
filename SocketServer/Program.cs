@@ -15,6 +15,7 @@ namespace SocketServer
             Socket listener = new Socket(IPAddress.Any.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             listener.Bind(new IPEndPoint(IPAddress.Any, 1604));
             listener.Listen(10);
+            Console.WriteLine("Listening for incomming connections.");
             listener.BeginAccept(AcceptCallback, listener);
 
             while (true)
@@ -39,7 +40,7 @@ namespace SocketServer
             Socket listener = (Socket)ar.AsyncState;
             Socket client = listener.EndAccept(ar);
             connectedClients.Add(client);
-            Console.WriteLine("New connection established.");
+            Console.WriteLine($"New connection established with ip: {client.RemoteEndPoint}");
 
             // Create state of connection
             StateObject state = new StateObject();
