@@ -55,6 +55,9 @@ namespace SocketServer
 
             // Get username
             client.BeginReceive(state.Buffer, 0, state.Buffer.Length, SocketFlags.None, ReceiveUsernameCallback, state);
+
+            // Listen for new connections
+            listener.BeginAccept(AcceptCallback, listener);
         }
 
         private static void ReceiveUsernameCallback(IAsyncResult ar)
