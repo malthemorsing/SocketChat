@@ -8,7 +8,7 @@ namespace SocketServer
 {
     class Program
     {
-        static List<Socket> connectedClients = new List<Socket>();
+        static List<StateObject> connectedClients = new List<StateObject>();
 
         static void Main(string[] args)
         {
@@ -23,15 +23,25 @@ namespace SocketServer
                 var input = Encoding.UTF8.GetBytes(Console.ReadLine());
                 foreach (var client in connectedClients)
                 {
-                    client.BeginSend(input, 0, input.Length, SocketFlags.None, SendCallback, client);
+                    byte[] colorBytes = new byte[1]
+                    {
+                        (byte)(int)client.Color
+                    };
+                    
+                    byte[] bytesToSend = new byte[input.Length + colorBytes.Length];
+
+                    colorBytes.CopyTo(bytesToSend, 0);
+                    input.CopyTo(bytesToSend, colorBytes.Length);
+
+                    client.WorkSocket.BeginSend(bytesToSend, 0, bytesToSend.Length, SocketFlags.None, SendCallback, client);
                 }
             }
         }
 
         private static void SendCallback(IAsyncResult ar)
         {
-            Socket client = (Socket)ar.AsyncState;
-            int bytesSent = client.EndSend(ar);
+            StateObject state = (StateObject)ar.AsyncState;
+            int bytesSent = state.WorkSocket.EndSend(ar);
         }
 
         private static void AcceptCallback(IAsyncResult ar)
@@ -39,12 +49,12 @@ namespace SocketServer
             // Accept new connection
             Socket listener = (Socket)ar.AsyncState;
             Socket client = listener.EndAccept(ar);
-            connectedClients.Add(client);
             Console.WriteLine($"New connection established with ip: {client.RemoteEndPoint}");
 
             // Create state of connection
             StateObject state = new StateObject();
             state.WorkSocket = client;
+            connectedClients.Add(state);
 
             // Assign color, and send to client.
             Console.ForegroundColor = (ConsoleColor)new Random().Next(1, 16);
@@ -52,7 +62,7 @@ namespace SocketServer
             byte[] colorInfo = BitConverter.GetBytes((int)Console.ForegroundColor);
             state.Color = Console.ForegroundColor;
             Console.ResetColor();
-            client.BeginSend(colorInfo, 0, colorInfo.Length, SocketFlags.None, SendColorInfoCallback, client);
+            
 
             // Get username
             client.BeginReceive(state.Buffer, 0, state.Buffer.Length, SocketFlags.None, ReceiveUsernameCallback, state);
@@ -77,13 +87,6 @@ namespace SocketServer
             handler.BeginReceive(state.Buffer, 0, StateObject.BufferSize, 0, new AsyncCallback(ReceiveCallback), state);
         }
 
-
-        private static void SendColorInfoCallback(IAsyncResult ar)
-        {
-            Socket client = (Socket)ar.AsyncState;
-            int bytesSent = client.EndSend(ar);
-        }
-
         private static void ReceiveCallback(IAsyncResult ar)
         {
             StateObject state = (StateObject)ar.AsyncState;
@@ -103,7 +106,7 @@ namespace SocketServer
             catch (Exception ex)
             {
                 Console.WriteLine("Error: " + ex.Message);
-                connectedClients.Remove(client);
+                connectedClients.Remove(state);
                 client.Close();
             }
         }

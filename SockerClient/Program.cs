@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 
 namespace SocketClient
@@ -13,17 +14,11 @@ namespace SocketClient
             string username = Console.ReadLine();
 
             Socket client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            client.Connect(new IPEndPoint(IPAddress.Parse("86.52.41.90"), 1604));
+            client.Connect(new IPEndPoint(IPAddress.Parse(""), 1604));
 
             // send username
             byte[] usernameBuffer = Encoding.UTF8.GetBytes(username);
             client.Send(usernameBuffer);
-
-            // receive color
-            byte[] colorBuffer = new byte[4];
-            client.Receive(colorBuffer);
-            ConsoleColor color = (ConsoleColor)BitConverter.ToInt32(colorBuffer, 0);
-            Console.ForegroundColor = color;
 
             // receive messages
             StateObject state = new StateObject();
@@ -43,11 +38,24 @@ namespace SocketClient
         {
             StateObject state = (StateObject)ar.AsyncState;
             Socket client = state.WorkSocket;
-            int bytesRead = 0;
             try
             {
-                bytesRead = client.EndReceive(ar);
-                Console.WriteLine(Encoding.UTF8.GetString(state.Buffer, 0, bytesRead));
+                int bytesReadbytesRead = client.EndReceive(ar);
+
+                int color = (int)state.Buffer[0];
+
+                ConsoleColor consoleColor = (ConsoleColor)color;
+                Console.ForegroundColor = consoleColor;
+
+
+                Console.WriteLine(Encoding.UTF8.GetString(state.Buffer, 1, state.Buffer.Length - 1));
+                Console.ResetColor();
+
+                // Clear the buffer
+                Array.Clear(state.Buffer, 0, state.Buffer.Length);
+
+                
+
                 client.BeginReceive(state.Buffer, 0, state.Buffer.Length, 0, new AsyncCallback(ReceiveCallback), state);
             }
             catch (Exception ex)
